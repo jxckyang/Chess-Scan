@@ -2,6 +2,7 @@ import { useState, useRef, useEffect, useMemo, useCallback } from 'react'
 import { Chess } from 'chess.js'
 import { Chessboard } from 'react-chessboard'
 import { processImageToFEN } from './visionService'
+import { Analytics } from '@vercel/analytics/react'
 
 // Constants moved outside component to avoid recreation on every render
 const DEFAULT_FEN_PARTS = ['', 'w', '-', '-', '0', '1']
@@ -2115,6 +2116,7 @@ function App() {
           </p>
         </div>
       </footer>
+      <Analytics />
     </div>
   )
 }
