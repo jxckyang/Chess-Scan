@@ -2,7 +2,6 @@ import { useState, useRef, useEffect, useMemo, useCallback } from 'react'
 import { Chess } from 'chess.js'
 import { Chessboard } from 'react-chessboard'
 import { processImageToFEN } from './visionService'
-import { Analytics } from '@vercel/analytics/react'
 
 // Constants moved outside component to avoid recreation on every render
 const DEFAULT_FEN_PARTS = ['', 'w', '-', '-', '0', '1']
@@ -46,6 +45,8 @@ function App() {
   const [isProcessing, setIsProcessing] = useState(false)
   const [processingError, setProcessingError] = useState(null)
   const [draggedPiece, setDraggedPiece] = useState(null)
+  const [isDraggingImage, setIsDraggingImage] = useState(false)
+  const [boardWidth, setBoardWidth] = useState(500)
   const fileInputRef = useRef(null)
   const paletteRef = useRef(null)
   const dragImageTimeoutRef = useRef(null)
@@ -54,6 +55,22 @@ function App() {
   const lastApiCallRef = useRef(0)
   const API_CALL_COOLDOWN = 1000 // 1 second between API calls
   
+  // Calculate responsive board width
+  useEffect(() => {
+    const updateBoardWidth = () => {
+      if (typeof window !== 'undefined') {
+        const isMobile = window.innerWidth < 1024 // lg breakpoint
+        // On desktop: 500px board - 32px padding (p-4 = 16px each side) = 468px
+        // On mobile: account for p-2 = 8px each side = 16px total
+        setBoardWidth(isMobile ? Math.min(350, window.innerWidth - 32) : 468)
+      }
+    }
+    
+    updateBoardWidth()
+    window.addEventListener('resize', updateBoardWidth)
+    return () => window.removeEventListener('resize', updateBoardWidth)
+  }, [])
+
   // Pre-create transparent drag image to prevent default dashed rectangle
   // Use a canvas with alpha channel for true transparency
   const transparentDragImageRef = useRef(null)
@@ -233,13 +250,8 @@ function App() {
     return true
   }
 
-  const handleScanBoard = useCallback(() => {
-    // Trigger file input click
-    fileInputRef.current?.click()
-  }, [])
-
-  const handleImageUpload = async (event) => {
-    const file = event.target.files?.[0]
+  // Helper function to process image files (used by file input, paste, and camera)
+  const processImageFile = useCallback(async (file) => {
     if (!file) return
 
     // Rate limiting: prevent too frequent API calls
@@ -248,10 +260,6 @@ function App() {
     if (timeSinceLastCall < API_CALL_COOLDOWN) {
       const waitTime = Math.ceil((API_CALL_COOLDOWN - timeSinceLastCall) / 1000)
       setProcessingError(`Please wait ${waitTime} second${waitTime > 1 ? 's' : ''} before uploading another image.`)
-      // Reset file input
-      if (fileInputRef.current) {
-        fileInputRef.current.value = ''
-      }
       return
     }
 
@@ -291,6 +299,16 @@ function App() {
         fileInputRef.current.value = ''
       }
     }
+  }, [])
+
+  const handleScanBoard = useCallback(() => {
+    // Trigger file input click
+    fileInputRef.current?.click()
+  }, [])
+
+  const handleImageUpload = async (event) => {
+    const file = event.target.files?.[0]
+    await processImageFile(file)
   }
 
   const handleReset = useCallback(() => {
@@ -814,6 +832,43 @@ function App() {
       document.removeEventListener('dragstart', handleAllDragStart, { capture: true })
     }
   }, [])
+
+  // Handle paste events (Ctrl+V / Cmd+V) for image uploads
+  useEffect(() => {
+    const handlePaste = async (e) => {
+      // Don't handle paste if user is typing in an input/textarea
+      const target = e.target
+      if (
+        target instanceof HTMLInputElement ||
+        target instanceof HTMLTextAreaElement ||
+        target instanceof HTMLSelectElement ||
+        target?.isContentEditable
+      ) {
+        return
+      }
+
+      const items = e.clipboardData?.items
+      if (!items) return
+
+      // Look for image files in clipboard
+      for (let i = 0; i < items.length; i++) {
+        const item = items[i]
+        if (item.type.indexOf('image') !== -1) {
+          e.preventDefault()
+          const file = item.getAsFile()
+          if (file) {
+            await processImageFile(file)
+          }
+          break
+        }
+      }
+    }
+
+    document.addEventListener('paste', handlePaste)
+    return () => {
+      document.removeEventListener('paste', handlePaste)
+    }
+  }, [processImageFile])
 
   const updateFenFromBoard = (gameCopy, board) => {
     let fenBoard = ''
@@ -1525,31 +1580,39 @@ function App() {
 
   return (
     <div className="min-h-screen bg-gray-900 text-gray-100 flex flex-col">
-      <div className="container mx-auto px-4 pt-8 pb-4">
+      <div className="container mx-auto px-2 lg:px-4 pt-2 lg:pt-4 pb-2 lg:pb-4">
         {/* Title Section - Top, Centered */}
-        <header className="text-center mb-4">
-          <h1 className="text-5xl font-extrabold bg-gradient-to-r from-blue-400 via-purple-500 to-pink-500 bg-clip-text text-transparent drop-shadow-2xl mb-1 tracking-tight">
+        <header className="text-center mb-1 lg:mb-2">
+          <h1 className="text-3xl lg:text-5xl font-extrabold bg-gradient-to-r from-blue-400 via-purple-500 to-pink-500 bg-clip-text text-transparent drop-shadow-2xl mb-0.5 lg:mb-1 tracking-tight">
             Chess Scan
           </h1>
-          <p className="text-gray-400 mt-1 text-sm">
+          <p className="text-gray-400 mt-0.5 lg:mt-1 text-xs lg:text-sm">
             Scan, edit, and analyze chess positions
           </p>
         </header>
 
         {/* Main Content - Centered */}
-        <div className="flex flex-col items-center justify-center w-full mt-10">
+        <div className="flex flex-col items-center justify-center w-full mt-2 lg:mt-4">
           {/* Board Container - Centered independently with palette and sidebar */}
-          <div className="relative w-full mb-4 flex justify-center">
+          <div className="relative w-full mb-1 lg:mb-2 flex flex-col lg:flex-row items-center justify-center gap-2 lg:gap-4">
             {/* Piece Palette - Left Side - Repositioned closer to board */}
             <div 
               ref={paletteRef}
-              className="absolute lg:right-[calc(50%+280px+0.75rem)] right-0 lg:w-48 w-full max-w-[200px] lg:max-w-none lg:left-auto"
+              className="w-full max-w-[160px] lg:max-w-[200px] lg:absolute lg:w-48 order-1 lg:order-none lg:z-10"
+              style={{
+                ...(typeof window !== 'undefined' && window.innerWidth >= 1024 
+                  ? { 
+                      right: 'calc(50% + 266px)',
+                      top: '0'
+                    } 
+                  : {})
+              }}
             >
-              <div className="bg-gray-800 rounded-lg p-3 shadow-2xl sticky top-4">
-                <div className="space-y-4">
+              <div className="bg-gray-800 rounded-lg p-2 lg:p-3 shadow-2xl sticky top-2 lg:top-4">
+                <div className="space-y-2 lg:space-y-4">
                   <div>
-                    <p className="text-xs text-gray-400 mb-2 text-center">White</p>
-                    <div className="grid grid-cols-3 gap-2">
+                    <p className="text-xs text-gray-400 mb-1 lg:mb-2 text-center">White</p>
+                    <div className="grid grid-cols-3 gap-1 lg:gap-2">
                       {PIECE_TYPES.map((type) => {
                         const pieceChar = type.toUpperCase()
                         // Keep FEN character for icon display, but store full name for placement
@@ -1586,7 +1649,7 @@ function App() {
                             className="w-full aspect-square flex items-center justify-center rounded-lg border-2 border-gray-600 bg-gray-700 hover:border-gray-400 hover:bg-gray-600 cursor-grab active:cursor-grabbing transition-all"
                             title={`White ${pieceChar}`}
                           >
-                            <PieceIcon piece={piece} size="3xl" />
+                            <PieceIcon piece={piece} size="2xl" />
                           </div>
                         )
                       })}
@@ -1594,8 +1657,8 @@ function App() {
                   </div>
                   
                   <div>
-                    <p className="text-xs text-gray-400 mb-2 text-center">Black</p>
-                    <div className="grid grid-cols-3 gap-2">
+                    <p className="text-xs text-gray-400 mb-1 lg:mb-2 text-center">Black</p>
+                    <div className="grid grid-cols-3 gap-1 lg:gap-2">
                       {PIECE_TYPES.map((type) => {
                         const pieceChar = type.toLowerCase()
                         // Keep FEN character for icon display, but store full name for placement
@@ -1632,7 +1695,7 @@ function App() {
                             className="w-full aspect-square flex items-center justify-center rounded-lg border-2 border-gray-600 bg-gray-700 hover:border-gray-400 hover:bg-gray-600 cursor-grab active:cursor-grabbing transition-all"
                             title={`Black ${pieceChar}`}
                           >
-                            <PieceIcon piece={piece} size="3xl" />
+                            <PieceIcon piece={piece} size="2xl" />
                           </div>
                         )
                       })}
@@ -1644,55 +1707,126 @@ function App() {
               </div>
 
                 {/* Chess Board - Center (independently centered) */}
-                <div className="flex flex-col items-center justify-self-center">
-                  <div className="bg-gray-800 rounded-lg p-4 shadow-2xl w-full max-w-2xl">
+                <div className="flex flex-col items-center order-2 lg:order-none w-full max-w-full lg:w-[520px] lg:mx-auto lg:flex-shrink-0">
+                  <div className="bg-gray-800 rounded-lg p-2 lg:p-4 shadow-2xl w-full">
               <input
                 ref={fileInputRef}
                 type="file"
                 accept="image/*"
+                capture="environment"
                 onChange={handleImageUpload}
                 className="hidden"
               />
               
               {processingError && (
-                <div className="mb-4 p-3 bg-red-900/50 border border-red-600 rounded-lg">
-                  <p className="text-red-300 text-sm text-center">{processingError}</p>
+                <div className="mb-2 lg:mb-3 p-2 lg:p-3 bg-red-900/50 border border-red-600 rounded-lg">
+                  <p className="text-red-300 text-xs lg:text-sm text-center">{processingError}</p>
                 </div>
               )}
 
-              <div className="mb-3 flex flex-wrap justify-center gap-2">
-                <button
-                  onClick={handleScanBoard}
-                  disabled={isProcessing}
-                  className={`px-4 py-2 font-semibold rounded-md border-2 text-xs ${
-                    isProcessing
-                      ? 'bg-gray-600 border-gray-500 text-gray-400 cursor-not-allowed'
-                      : 'bg-blue-600 hover:bg-blue-700 border-blue-500 hover:border-blue-400 text-white'
-                  }`}
-                >
-                  {isProcessing ? 'Processing...' : 'Upload Image'}
-                </button>
+              {/* Drag & Drop Upload Zone */}
+              <div
+                onClick={handleScanBoard}
+                onDragOver={(e) => {
+                  e.preventDefault()
+                  e.stopPropagation()
+                  // Check if dragging files (images)
+                  const hasFiles = e.dataTransfer.types.includes('Files')
+                  if (hasFiles) {
+                    setIsDraggingImage(true)
+                    e.dataTransfer.dropEffect = 'copy'
+                  }
+                }}
+                onDragLeave={(e) => {
+                  e.preventDefault()
+                  e.stopPropagation()
+                  // Only clear drag state if we're actually leaving the drop zone
+                  const rect = e.currentTarget.getBoundingClientRect()
+                  const x = e.clientX
+                  const y = e.clientY
+                  if (x < rect.left || x > rect.right || y < rect.top || y > rect.bottom) {
+                    setIsDraggingImage(false)
+                  }
+                }}
+                onDrop={async (e) => {
+                  e.preventDefault()
+                  e.stopPropagation()
+                  setIsDraggingImage(false)
+                  
+                  // Handle image file drops
+                  const files = e.dataTransfer?.files
+                  if (files && files.length > 0) {
+                    const imageFile = Array.from(files).find(file => file.type.startsWith('image/'))
+                    if (imageFile) {
+                      await processImageFile(imageFile)
+                      return
+                    }
+                  }
+                }}
+                className={`relative mb-2 lg:mb-3 border-2 border-dashed rounded-lg p-2 lg:p-4 transition-all duration-200 ${
+                  isDraggingImage
+                    ? 'border-blue-400 bg-blue-900/20 border-solid'
+                    : isProcessing
+                    ? 'border-gray-600 bg-gray-800/50 cursor-not-allowed'
+                    : 'border-gray-600 bg-gray-800/30 hover:border-gray-500 hover:bg-gray-800/50 cursor-pointer'
+                }`}
+              >
+                {isProcessing ? (
+                  <div className="flex flex-col items-center justify-center py-1 lg:py-2">
+                    <div className="animate-spin rounded-full h-5 w-5 lg:h-6 lg:w-6 border-b-2 border-blue-400 mb-1 lg:mb-2"></div>
+                    <p className="text-gray-300 text-xs lg:text-sm">Processing image...</p>
+                  </div>
+                ) : (
+                  <div className="flex flex-col items-center justify-center text-center">
+                    <svg
+                      className="w-6 h-6 lg:w-8 lg:h-8 text-gray-400 mb-1 lg:mb-1.5"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"
+                      />
+                    </svg>
+                    <p className="text-gray-200 font-semibold text-xs lg:text-sm mb-0.5 lg:mb-1">
+                      Drop image or click to browse
+                    </p>
+                    <p className="text-gray-400 text-xs flex items-center justify-center gap-1 flex-wrap">
+                      <span>Press</span>
+                      <kbd className="px-1 py-0.5 lg:px-1.5 bg-gray-900/50 border border-gray-700 rounded text-gray-300 font-mono text-xs">
+                        Ctrl+V
+                      </kbd>
+                      <span>to paste</span>
+                    </p>
+                  </div>
+                )}
+              </div>
+
+              <div className="mb-2 lg:mb-3 flex flex-wrap justify-center gap-1.5 lg:gap-2 w-full max-w-[480px] mx-auto">
                 <button
                   onClick={handleReset}
-                  className="px-4 py-2 bg-gray-700 hover:bg-gray-600 border-2 border-gray-600 hover:border-gray-500 text-white font-semibold rounded-md text-xs"
+                  className="px-2 py-1.5 lg:px-4 lg:py-2 bg-gray-700 hover:bg-gray-600 border-2 border-gray-600 hover:border-gray-500 text-white font-semibold rounded-md text-xs"
                 >
                   Reset
                 </button>
                 <button
                   onClick={handleClear}
-                  className="px-4 py-2 bg-red-600 hover:bg-red-700 border-2 border-red-500 hover:border-red-400 text-white font-semibold rounded-md text-xs"
+                  className="px-2 py-1.5 lg:px-4 lg:py-2 bg-red-600 hover:bg-red-700 border-2 border-red-500 hover:border-red-400 text-white font-semibold rounded-md text-xs"
                 >
                   Clear
                 </button>
                 <button
                   onClick={handleFlipBoard}
-                  className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 border-2 border-indigo-500 hover:border-indigo-400 text-white font-semibold rounded-md text-xs"
+                  className="px-2 py-1.5 lg:px-4 lg:py-2 bg-indigo-600 hover:bg-indigo-700 border-2 border-indigo-500 hover:border-indigo-400 text-white font-semibold rounded-md text-xs"
                 >
                   Flip Board
                 </button>
                 <button
                   onClick={handleSwapColors}
-                  className="px-4 py-2 bg-cyan-600 hover:bg-cyan-700 border-2 border-cyan-500 hover:border-cyan-400 text-white font-semibold rounded-md text-xs"
+                  className="px-2 py-1.5 lg:px-4 lg:py-2 bg-cyan-600 hover:bg-cyan-700 border-2 border-cyan-500 hover:border-cyan-400 text-white font-semibold rounded-md text-xs"
                   title="Swap black and white pieces"
                 >
                   Swap Colors
@@ -1701,17 +1835,29 @@ function App() {
               
               <div className="flex flex-col items-center relative">
                   <div 
-                    className="bg-gray-700 rounded-lg p-3 relative"
+                    className="bg-gray-700 rounded-lg p-1.5 lg:p-3 relative"
                     onDragOver={(e) => {
                       e.preventDefault()
+                      // Check if dragging files (images) - don't handle file drops here, let upload zone handle it
+                      const hasFiles = e.dataTransfer.types.includes('Files')
+                      if (hasFiles) {
+                        return // Don't interfere with file drops
+                      }
+                      // Otherwise, handle piece dragging
                       e.dataTransfer.dropEffect = 'move'
                     }}
                     onDrop={(e) => {
                       e.preventDefault()
+                      // Ignore file drops - they're handled by the upload zone above
+                      if (e.dataTransfer?.files && e.dataTransfer.files.length > 0) {
+                        return
+                      }
+                      
                       if (draggedPiece) {
                         const rect = e.currentTarget.getBoundingClientRect()
-                        const boardPadding = 12 // p-3 = 12px
-                        const boardSize = 500
+                        // Board padding: p-2 (8px) on mobile, p-3 (12px) on desktop
+                        const boardPadding = boardWidth < 400 ? 8 : 12
+                        const boardSize = boardWidth
                       const squareSize = boardSize / 8
                       
                       // Calculate relative position within the board
@@ -1874,27 +2020,37 @@ function App() {
                     onPieceDrop={enhancedOnDrop}
                     onSquareRightClick={handleSquareRightClick}
                     boardOrientation={isBoardFlipped ? 'black' : 'white'}
-                    boardWidth={500}
+                    boardWidth={boardWidth}
                     animationDuration={0}
                     customDarkSquareStyle={{ backgroundColor: '#769656' }}
                     customLightSquareStyle={{ backgroundColor: '#eeeed2' }}
                   />
                 </div>
-                <p className="text-sm text-gray-200 mt-2 text-center font-semibold">
-                  💡 Drag pieces from the left onto the board. Right click to delete pieces.
+                <p className="text-xs lg:text-sm text-gray-200 mt-1 lg:mt-2 text-center font-semibold">
+                  💡 Drag pieces onto board. <span className="hidden lg:inline">Right click</span><span className="lg:hidden">Long press</span> to delete.
                 </p>
                 </div>
                 </div>
               </div>
 
             {/* Sidebar with FEN - Right Side (positioned absolutely, doesn't affect centering) */}
-            <div className="absolute lg:left-[calc(50%+280px+0.75rem)] right-0 lg:w-64 w-full max-w-[240px] lg:max-w-none">
-                <div className="bg-gray-800 rounded-lg p-4 shadow-2xl h-full">
-              <h2 className="text-xl font-bold mb-3 text-blue-400">
+            <div 
+              className="w-full max-w-[200px] lg:max-w-[240px] lg:absolute lg:w-64 order-3 lg:order-none lg:flex-none lg:z-10"
+              style={{
+                ...(typeof window !== 'undefined' && window.innerWidth >= 1024 
+                  ? { 
+                      left: 'calc(50% + 266px)',
+                      top: '0'
+                    } 
+                  : {})
+              }}
+            >
+                <div className="bg-gray-800 rounded-lg p-2 lg:p-4 shadow-2xl h-full">
+              <h2 className="text-lg lg:text-xl font-bold mb-2 lg:mb-3 text-blue-400">
                 FEN String
               </h2>
-              <div className="bg-gray-900 rounded-lg p-3 mb-3">
-                <code className="text-sm text-gray-300 break-all select-all">
+              <div className="bg-gray-900 rounded-lg p-2 lg:p-3 mb-2 lg:mb-3">
+                <code className="text-xs lg:text-sm text-gray-300 break-all select-all">
                   {fen}
                 </code>
               </div>
@@ -1922,22 +2078,22 @@ function App() {
                     document.body.removeChild(textarea)
                   }
                 }}
-                className="w-full px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white font-semibold rounded-lg shadow-lg transition-all duration-200 transform hover:scale-105 active:scale-95"
+                className="w-full px-3 py-1.5 lg:px-4 lg:py-2 bg-purple-600 hover:bg-purple-700 text-white font-semibold rounded-lg shadow-lg transition-all duration-200 transform hover:scale-105 active:scale-95 text-xs lg:text-sm"
               >
                 Copy FEN
               </button>
 
-              <div className="mt-6 pt-6 border-t border-gray-700">
-                <h3 className="text-lg font-semibold mb-3 text-gray-300">
+              <div className="mt-3 pt-3 lg:mt-6 lg:pt-6 border-t border-gray-700">
+                <h3 className="text-sm lg:text-lg font-semibold mb-2 lg:mb-3 text-gray-300">
                   Board Controls
                 </h3>
                 
-                <div className="space-y-4">
+                <div className="space-y-2 lg:space-y-4">
                   <div>
-                    <label className="text-gray-400 text-sm font-medium mb-2 block">
+                    <label className="text-gray-400 text-xs lg:text-sm font-medium mb-1 lg:mb-2 block">
                       Turn:
                     </label>
-                    <div className="flex gap-4 mt-1">
+                    <div className="flex gap-3 lg:gap-4 mt-0.5 lg:mt-1">
                       <label className="flex items-center gap-1.5 cursor-pointer">
                         <input
                           type="radio"
@@ -1970,13 +2126,13 @@ function App() {
                   </div>
 
                   <div>
-                    <h4 className="text-sm font-semibold text-gray-300 mb-2">
+                    <h4 className="text-xs lg:text-sm font-semibold text-gray-300 mb-1.5 lg:mb-2">
                       Castling Rights
                     </h4>
-                    <div className="space-y-3">
+                    <div className="space-y-2 lg:space-y-3">
                       <div>
-                        <span className="text-gray-400 text-sm font-medium">White:</span>
-                        <div className="flex gap-3 mt-1">
+                        <span className="text-gray-400 text-xs lg:text-sm font-medium">White:</span>
+                        <div className="flex gap-2 lg:gap-3 mt-0.5 lg:mt-1">
                           <label className="flex items-center gap-1.5 cursor-pointer">
                             <input
                               type="checkbox"
@@ -2002,8 +2158,8 @@ function App() {
                         </div>
                       </div>
                       <div>
-                        <span className="text-gray-400 text-sm font-medium">Black:</span>
-                        <div className="flex gap-3 mt-1">
+                        <span className="text-gray-400 text-xs lg:text-sm font-medium">Black:</span>
+                        <div className="flex gap-2 lg:gap-3 mt-0.5 lg:mt-1">
                           <label className="flex items-center gap-1.5 cursor-pointer">
                             <input
                               type="checkbox"
@@ -2038,7 +2194,7 @@ function App() {
         </div>
 
         {/* Analysis Buttons */}
-        <div className="mt-2 flex flex-wrap justify-center gap-2">
+        <div className="mt-1 lg:mt-2 flex flex-wrap justify-center gap-1.5 lg:gap-2 w-full max-w-full lg:max-w-[556px]" style={{ margin: '0.25rem auto 0' }}>
           <button
             onClick={handleAnalyzeChessCom}
             onAuxClick={(e) => {
@@ -2047,9 +2203,9 @@ function App() {
                 handleAnalyzeChessCom()
               }
             }}
-            className="px-4 py-2 bg-gradient-to-r from-purple-500 to-purple-600 hover:from-purple-600 hover:to-purple-700 text-white font-bold text-xs rounded-xl shadow-2xl border-2 border-purple-300/50 hover:border-purple-200 transition-all duration-300 active:scale-95 backdrop-blur-sm"
+            className="px-2 py-1.5 lg:px-3 lg:py-2 bg-gradient-to-r from-purple-500 to-purple-600 hover:from-purple-600 hover:to-purple-700 text-white font-bold text-xs lg:text-sm rounded-lg lg:rounded-xl shadow-xl lg:shadow-2xl border-2 border-purple-300/50 hover:border-purple-200 transition-all duration-300 active:scale-95 backdrop-blur-sm flex-1 min-w-0 leading-tight"
           >
-            Analyze on Chess.com
+            Analyze on<br />Chess.com
           </button>
           <button
             onClick={handleAnalyzeLichess}
@@ -2059,9 +2215,9 @@ function App() {
                 handleAnalyzeLichess()
               }
             }}
-            className="px-4 py-2 bg-gradient-to-r from-purple-500 to-purple-600 hover:from-purple-600 hover:to-purple-700 text-white font-bold text-xs rounded-xl shadow-2xl border-2 border-purple-300/50 hover:border-purple-200 transition-all duration-300 active:scale-95 backdrop-blur-sm"
+            className="px-2 py-1.5 lg:px-3 lg:py-2 bg-gradient-to-r from-purple-500 to-purple-600 hover:from-purple-600 hover:to-purple-700 text-white font-bold text-xs lg:text-sm rounded-lg lg:rounded-xl shadow-xl lg:shadow-2xl border-2 border-purple-300/50 hover:border-purple-200 transition-all duration-300 active:scale-95 backdrop-blur-sm flex-1 min-w-0 leading-tight"
           >
-            Analyze on Lichess
+            Analyze on<br />Lichess.com
           </button>
           <button
             onClick={handleEditorLichess}
@@ -2071,9 +2227,9 @@ function App() {
                 handleEditorLichess()
               }
             }}
-            className="px-4 py-2 bg-gradient-to-r from-purple-500 to-purple-600 hover:from-purple-600 hover:to-purple-700 text-white font-bold text-xs rounded-xl shadow-2xl border-2 border-purple-300/50 hover:border-purple-200 transition-all duration-300 active:scale-95 backdrop-blur-sm"
+            className="px-2 py-1.5 lg:px-3 lg:py-2 bg-gradient-to-r from-purple-500 to-purple-600 hover:from-purple-600 hover:to-purple-700 text-white font-bold text-xs lg:text-sm rounded-lg lg:rounded-xl shadow-xl lg:shadow-2xl border-2 border-purple-300/50 hover:border-purple-200 transition-all duration-300 active:scale-95 backdrop-blur-sm flex-1 min-w-0 leading-tight"
           >
-            Edit with Lichess
+            Edit with<br />Lichess.com
           </button>
           <button
             onClick={handleEditFENTool}
@@ -2083,16 +2239,16 @@ function App() {
                 handleEditFENTool()
               }
             }}
-            className="px-4 py-2 bg-gradient-to-r from-purple-500 to-purple-600 hover:from-purple-600 hover:to-purple-700 text-white font-bold text-xs rounded-xl shadow-2xl border-2 border-purple-300/50 hover:border-purple-200 transition-all duration-300 active:scale-95 backdrop-blur-sm"
+            className="px-2 py-1.5 lg:px-3 lg:py-2 bg-gradient-to-r from-purple-500 to-purple-600 hover:from-purple-600 hover:to-purple-700 text-white font-bold text-xs lg:text-sm rounded-lg lg:rounded-xl shadow-xl lg:shadow-2xl border-2 border-purple-300/50 hover:border-purple-200 transition-all duration-300 active:scale-95 backdrop-blur-sm flex-1 min-w-0 leading-tight"
           >
-            Edit with FEN Tool
+            Edit with<br />FEN Tool
           </button>
         </div>
       </div>
       
       {/* Footer Banner */}
-      <footer className="w-full border-t border-gray-800 mt-auto py-1.5 bg-gray-900">
-        <div className="container mx-auto px-4 text-center">
+      <footer className="w-full border-t border-gray-800 mt-auto py-1 lg:py-1.5 bg-gray-900">
+        <div className="container mx-auto px-2 lg:px-4 text-center">
           <p className="text-xs text-gray-500">
             Made by{' '}
             <a 
@@ -2116,7 +2272,6 @@ function App() {
           </p>
         </div>
       </footer>
-      <Analytics />
     </div>
   )
 }

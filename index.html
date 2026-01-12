@@ -2,37 +2,144 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/png" href="/Chess Scan Logo.png" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; connect-src 'self' https://detect.roboflow.com https://lichess.org https://www.chess.com; font-src 'self' data:; frame-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self';" />
     
+    <!-- Resource Hints -->
+    <link rel="preconnect" href="https://detect.roboflow.com" />
+    <link rel="preconnect" href="https://lichess.org" />
+    <link rel="preconnect" href="https://www.chess.com" />
+    <link rel="dns-prefetch" href="https://detect.roboflow.com" />
+    <link rel="dns-prefetch" href="https://lichess.org" />
+    <link rel="dns-prefetch" href="https://www.chess.com" />
+    
+    <!-- Favicons -->
+    <link rel="icon" type="image/png" sizes="32x32" href="/Chess Scan Logo.png" />
+    <link rel="icon" type="image/png" sizes="16x16" href="/Chess Scan Logo.png" />
+    <link rel="apple-touch-icon" sizes="180x180" href="/Chess Scan Logo.png" />
+    
+    <!-- Manifest -->
+    <link rel="manifest" href="/manifest.json" />
+    
     <!-- Primary Meta Tags -->
-    <title>Chess Scan - Chess Board Scanner and Position Editor</title>
-    <meta name="title" content="Chess Scan - Chess Board Scanner and Position Editor" />
-    <meta name="description" content="Upload an image of a chess board to detect the position using computer vision, or manually edit positions with drag-and-drop. Generate FEN strings and analyze positions on Lichess and Chess.com." />
-    <meta name="keywords" content="chess scanner, chess board scanner, chess position editor, FEN generator, chess analysis, computer vision chess, lichess editor, chess.com analysis, chess board recognition, chess OCR" />
+    <title>Chess Scan - AI Chess Board Scanner & FEN Editor</title>
+    <meta name="title" content="Chess Scan - AI Chess Board Scanner & FEN Editor" />
+    <meta name="description" content="Free AI-powered chess board scanner. Upload board images to detect positions automatically or edit manually. Export FEN notation and analyze on Lichess/Chess.com." />
+    <meta name="keywords" content="chess board scanner, chess position detector, FEN notation generator, chess analysis tool, computer vision chess, AI chess recognition, chess board OCR, chess position editor, lichess position analyzer, chess.com analysis tool, free chess scanner, online chess board editor, drag and drop chess editor, chess position converter, chess notation tool" />
     <meta name="author" content="Jack Yang" />
     <meta name="robots" content="index, follow" />
     <meta name="language" content="English" />
     <meta name="revisit-after" content="7 days" />
+    <meta name="format-detection" content="telephone=no" />
+    <meta name="mobile-web-app-capable" content="yes" />
     
     <!-- Open Graph / Facebook -->
     <meta property="og:type" content="website" />
     <meta property="og:url" content="https://www.chess-scan.com/" />
-    <meta property="og:title" content="Chess Scan - Chess Board Scanner and Position Editor" />
-    <meta property="og:description" content="Upload an image of a chess board to detect the position using computer vision, or manually edit positions with drag-and-drop. Generate FEN strings and analyze positions on Lichess and Chess.com." />
-    <meta property="og:image" content="/Chess Scan Logo.png" />
+    <meta property="og:title" content="Chess Scan - AI Chess Board Scanner & FEN Editor" />
+    <meta property="og:description" content="Free AI-powered chess board scanner. Upload board images to detect positions automatically or edit manually. Export FEN notation and analyze on Lichess/Chess.com." />
+    <meta property="og:image" content="https://www.chess-scan.com/Chess Scan Logo.png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="Chess Scan Logo" />
+    <meta property="og:site_name" content="Chess Scan" />
     
     <!-- Twitter -->
     <meta property="twitter:card" content="summary_large_image" />
     <meta property="twitter:url" content="https://www.chess-scan.com/" />
-    <meta property="twitter:title" content="Chess Scan - Chess Board Scanner and Position Editor" />
-    <meta property="twitter:description" content="Upload an image of a chess board to detect the position using computer vision, or manually edit positions with drag-and-drop. Generate FEN strings and analyze positions on Lichess and Chess.com." />
-    <meta property="twitter:image" content="/Chess Scan Logo.png" />
+    <meta property="twitter:title" content="Chess Scan - AI Chess Board Scanner & FEN Editor" />
+    <meta property="twitter:description" content="Free AI-powered chess board scanner. Upload board images to detect positions automatically or edit manually. Export FEN notation and analyze on Lichess/Chess.com." />
+    <meta property="twitter:image" content="https://www.chess-scan.com/Chess Scan Logo.png" />
+    <meta property="twitter:image:alt" content="Chess Scan Logo" />
     
     <!-- Additional SEO -->
     <meta name="theme-color" content="#111827" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <link rel="canonical" href="https://www.chess-scan.com/" />
+    
+    <!-- Structured Data (JSON-LD) -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "SoftwareApplication",
+      "name": "Chess Scan",
+      "description": "Free AI-powered chess board scanner. Upload board images to detect positions automatically or edit manually. Export FEN notation and analyze on Lichess/Chess.com.",
+      "url": "https://www.chess-scan.com/",
+      "applicationCategory": "GameApplication",
+      "operatingSystem": "Web Browser",
+      "offers": {
+        "@type": "Offer",
+        "price": "0",
+        "priceCurrency": "USD"
+      },
+      "author": {
+        "@type": "Person",
+        "name": "Jack Yang",
+        "url": "https://www.linkedin.com/in/jackyang29/"
+      },
+      "screenshot": "https://www.chess-scan.com/Chess Scan Logo.png",
+      "featureList": [
+        "AI-powered chess board recognition",
+        "Computer vision position detection",
+        "Interactive drag-and-drop editor",
+        "FEN notation export",
+        "Integration with Lichess and Chess.com",
+        "Position analysis tools"
+      ],
+      "softwareHelp": {
+        "@type": "CreativeWork",
+        "text": "Upload an image of a chess board to automatically detect the position, or manually edit positions using drag-and-drop."
+      }
+    }
+    </script>
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "BreadcrumbList",
+      "itemListElement": [{
+        "@type": "ListItem",
+        "position": 1,
+        "name": "Home",
+        "item": "https://www.chess-scan.com/"
+      }]
+    }
+    </script>
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "FAQPage",
+      "mainEntity": [{
+        "@type": "Question",
+        "name": "How does chess board scanning work?",
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": "Chess Scan uses computer vision and AI to automatically detect chess pieces from uploaded images. Simply upload a photo of a chess board and the system will recognize the position using advanced image recognition technology."
+        }
+      }, {
+        "@type": "Question",
+        "name": "Can I edit chess positions manually?",
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": "Yes! You can manually edit positions using drag-and-drop. Add pieces, remove them by right-clicking, or move pieces around the board with ease. The editor supports all standard chess rules and position configurations."
+        }
+      }, {
+        "@type": "Question",
+        "name": "What is FEN notation?",
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": "FEN (Forsyth-Edwards Notation) is a standard method for describing chess positions. Chess Scan generates FEN strings that you can export and use with chess analysis tools, share with others, or import into chess applications."
+        }
+      }, {
+        "@type": "Question",
+        "name": "Can I analyze positions on Lichess or Chess.com?",
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": "Yes! Chess Scan provides direct links to analyze your positions on both Lichess and Chess.com. Simply click the analysis buttons to open your position in these popular chess platforms."
+        }
+      }]
+    }
+    </script>
   </head>
   <body>
     <div id="root"></div>
